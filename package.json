@@ -1,0 +1,108 @@
+{
+  "name": "fs-layer",
+  "version": "0.1.0",
+  "description": "Virtual filesystem layer for ReAct agents — explore ChromaDB and Neo4j through just-bash as if they were a local filesystem.",
+  "keywords": [
+    "agents",
+    "react",
+    "just-bash",
+    "chromadb",
+    "neo4j",
+    "filesystem",
+    "chromafs",
+    "llm"
+  ],
+  "license": "MIT",
+  "author": "Sarthak Chauhan <sarthakchauhann@gmail.com>",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./chroma": {
+      "import": {
+        "types": "./dist/chroma/index.d.ts",
+        "default": "./dist/chroma/index.js"
+      },
+      "require": {
+        "types": "./dist/chroma/index.d.cts",
+        "default": "./dist/chroma/index.cjs"
+      }
+    },
+    "./neo4j": {
+      "import": {
+        "types": "./dist/neo4j/index.d.ts",
+        "default": "./dist/neo4j/index.js"
+      },
+      "require": {
+        "types": "./dist/neo4j/index.d.cts",
+        "default": "./dist/neo4j/index.cjs"
+      }
+    },
+    "./agent": {
+      "import": {
+        "types": "./dist/agent/index.d.ts",
+        "default": "./dist/agent/index.js"
+      },
+      "require": {
+        "types": "./dist/agent/index.d.cts",
+        "default": "./dist/agent/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "chromadb": ">=1.9.0",
+    "just-bash": ">=2.0.0",
+    "neo4j-driver": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "chromadb": {
+      "optional": true
+    },
+    "neo4j-driver": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "micromatch": "^4.0.8",
+    "yargs-parser": "^21.1.1"
+  },
+  "devDependencies": {
+    "@types/micromatch": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "@types/yargs-parser": "^21.0.3",
+    "chromadb": "^1.10.0",
+    "just-bash": "^3.2.0",
+    "neo4j-driver": "^5.28.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sarthakischauhan/fs_layer.git"
+  },
+  "homepage": "https://github.com/Sarthakischauhan/fs_layer#readme"
+}
