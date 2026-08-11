@@ -17,7 +17,7 @@ Create `.env`:
 
 ```env
 CHROMA_API_KEY=your-chroma-api-key
-CHROMA_TENANT=028159bb-a271-4972-aa23-7a6da3a60264
+CHROMA_TENANT=random
 CHROMA_DATABASE=fs_layer
 CHROMA_COLLECTION=fs_layer
 OPENAI_API_KEY=your-openai-api-key
