@@ -17,18 +17,65 @@ Agents already know how to explore codebases with a shell. Point that shell at y
 ## Install
 
 ```bash
-npm install fs-layer just-bash
+npm install fs-layer just-bash langchain @langchain/core zod
 # optional backends
 npm install chromadb neo4j-driver
 ```
 
-## Quick start — ChromaFs
+## Quick start — LangChain `createAgent`
+
+Use LangChain's `createAgent` (LangGraph runtime) with filesystem tools defined via `tool` + Zod:
+
+```ts
+import { ChromaClient } from "chromadb";
+import { ChromaFs, createFsAgent } from "fs-layer";
+
+const client = new ChromaClient();
+const collection = await client.getOrCreateCollection({ name: "docs" });
+const fs = await ChromaFs.create(collection);
+
+const agent = createFsAgent({
+  model: "openai:gpt-4o-mini",
+  fs,
+  bashOptions: { customCommands: [fs.createGrepCommand()] },
+});
+
+const result = await agent.invoke({
+  messages: [{ role: "user", content: "How does OAuth work? Cite paths." }],
+});
+```
+
+Tools registered by default:
+
+| Tool | Role |
+| --- | --- |
+| `bash` | Free-form shell (`ls`, `cat`, `grep`, pipes) |
+| `ls` | List a directory |
+| `read_file` | Read a file |
+| `grep` | Search under a path |
+| `glob` | Match paths (`**/*.md`) |
+
+Or build the tools yourself:
+
+```ts
+import { createAgent, tool } from "langchain";
+import { createAgentBash, createFsAgentTools, FS_LAYER_SYSTEM_PROMPT } from "fs-layer";
+
+const bash = createAgentBash({ fs, customCommands: [fs.createGrepCommand()] });
+const agent = createAgent({
+  model: "openai:gpt-4o-mini",
+  tools: createFsAgentTools({ bash, fs }),
+  systemPrompt: FS_LAYER_SYSTEM_PROMPT,
+});
+```
+
+## Quick start — ChromaFs (shell only)
 
 Index docs into Chroma with a `__path_tree__` document and chunked pages:
 
 ```ts
 import { ChromaClient } from "chromadb";
-import { ChromaFs, createAgentBash, createBashTool, FS_LAYER_SYSTEM_PROMPT } from "fs-layer";
+import { ChromaFs, createAgentBash, createBashTool } from "fs-layer";
 
 const client = new ChromaClient();
 const collection = await client.getOrCreateCollection({ name: "docs" });
@@ -43,8 +90,8 @@ await bash.exec("ls /auth");
 await bash.exec("cat /auth/oauth.md");
 await bash.exec('grep -ri "access_token" /');
 
-// Hand to any ReAct / tool-calling agent
-const tool = createBashTool(bash);
+const tool = createBashTool(bash); // LangChain StructuredTool
+await tool.invoke({ command: "ls /guides" });
 ```
 
 ### Chroma schema
@@ -129,14 +176,12 @@ const bash = new Bash({
 ## Agent loop
 
 ```ts
-import { createAgentBash, createBashTool, FS_LAYER_SYSTEM_PROMPT } from "fs-layer";
+import { createFsAgent } from "fs-layer";
 
-const bash = createAgentBash({ fs });
-const tool = createBashTool(bash);
-
-// system: FS_LAYER_SYSTEM_PROMPT
-// tools:  [tool]
-// loop:   plan → tool.execute({ command }) → observe → act
+const agent = createFsAgent({ model: "openai:gpt-4o-mini", fs });
+const result = await agent.invoke({
+  messages: [{ role: "user", content: "Summarize auth from the docs" }],
+});
 ```
 
 ## API
@@ -145,10 +190,11 @@ const tool = createBashTool(bash);
 | --- | --- |
 | `ChromaFs` | `IFileSystem` over ChromaDB |
 | `Neo4jFs` | `IFileSystem` over Neo4j |
+| `createFsAgent` | LangChain `createAgent` + filesystem tools |
+| `createFsAgentTools` / `createBashTool` / `createFsTools` | LangChain `tool()` helpers |
 | `createAgentBash` | just-bash bound to a virtual FS |
-| `createBashTool` | ReAct-friendly `{ name, description, parameters, execute }` |
 | `PathTree` / `ContentCache` | shared bootstrap + session cache |
-| `FS_LAYER_SYSTEM_PROMPT` | system prompt fragment for agents |
+| `FS_LAYER_SYSTEM_PROMPT` | system prompt for agents |
 
 ## Development
 

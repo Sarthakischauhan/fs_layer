@@ -68,7 +68,7 @@ async function main() {
   }
 
   const tool = createBashTool(bash);
-  const toolResult = await tool.execute({ command: "find / -name '*.md'" });
+  const toolResult = await tool.invoke({ command: "find / -name '*.md'" });
   console.log("\n[tool]", toolResult);
 }
 

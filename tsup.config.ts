@@ -13,5 +13,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   target: "es2022",
-  external: ["chromadb", "neo4j-driver", "just-bash"],
+  external: ["chromadb", "neo4j-driver", "just-bash", "langchain", "@langchain/core", "@langchain/langgraph", "zod"],
 });

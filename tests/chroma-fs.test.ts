@@ -3,7 +3,7 @@ import { Bash } from "just-bash";
 import { ChromaFs } from "../src/chroma/chroma-fs.js";
 import { ContentCache } from "../src/cache.js";
 import { fineFilter, toChromaFilter } from "../src/chroma/grep.js";
-import { createAgentBash, createBashTool } from "../src/agent/create-bash.js";
+import { createAgentBash, createBashTool } from "../src/agent/index.js";
 
 /** Minimal in-memory Chroma collection stand-in. */
 class FakeCollection {
@@ -153,12 +153,11 @@ describe("ChromaFs + just-bash", () => {
     expect(grep.stdout).toContain("access_token");
   });
 
-  it("exposes a ReAct bash tool", async () => {
+  it("exposes a LangChain bash tool", async () => {
     const bash = createAgentBash({ fs });
     const tool = createBashTool(bash);
-    const result = await tool.execute({ command: "ls /guides" });
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe("quickstart.md");
+    const result = await tool.invoke({ command: "ls /guides" });
+    expect(String(result)).toContain("quickstart.md");
   });
 });
 

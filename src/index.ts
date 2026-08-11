@@ -28,6 +28,13 @@ export type { Neo4jFsOptions, Neo4jFsMode } from "./neo4j/index.js";
 export {
   createAgentBash,
   createBashTool,
+  createFsTools,
+  createFsAgentTools,
+  createFsAgent,
   FS_LAYER_SYSTEM_PROMPT,
 } from "./agent/index.js";
-export type { CreateAgentBashOptions, BashToolResult } from "./agent/index.js";
+export type {
+  CreateAgentBashOptions,
+  CreateFsAgentOptions,
+  BashToolResult,
+} from "./agent/index.js";
