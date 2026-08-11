@@ -213,17 +213,16 @@ export function createFsTools(fs: IFileSystem) {
 }
 
 /**
- * Default tool set for createAgent: bash + structured FS helpers.
+ * Default tool set for createAgent: one bash tool. Structured tools are opt-in.
  */
 export function createFsAgentTools(options: {
   bash: Bash;
   fs?: IFileSystem;
-  /** Include structured ls/read_file/grep/glob tools. Default true when fs is provided. */
+  /** Include structured ls/read_file/grep/glob tools. Default false. */
   includeStructured?: boolean;
 }): StructuredToolInterface[] {
   const tools: StructuredToolInterface[] = [createBashTool(options.bash)];
-  const includeStructured =
-    options.includeStructured ?? Boolean(options.fs);
+  const includeStructured = options.includeStructured ?? false;
   if (includeStructured && options.fs) {
     tools.push(...createFsTools(options.fs));
   }

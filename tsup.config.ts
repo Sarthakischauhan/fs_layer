@@ -1,13 +1,8 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: {
-    index: "src/index.ts",
-    "chroma/index": "src/chroma/index.ts",
-    "neo4j/index": "src/neo4j/index.ts",
-    "agent/index": "src/agent/index.ts",
-  },
-  format: ["esm", "cjs"],
+  entry: { main: "src/main.ts" },
+  format: ["esm"],
   dts: true,
   splitting: false,
   sourcemap: true,

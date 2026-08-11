@@ -1,209 +1,68 @@
 # fs-layer
 
-Virtual filesystem layer for ReAct / plan-observe-act agents. Agents talk to low-latency stores like **ChromaDB** and **Neo4j** through [just-bash](https://github.com/vercel-labs/just-bash) — so retrieval looks like ordinary shell exploration (`ls`, `cat`, `grep`, `find`).
+An agentic knowledge-base explorer. One agent gets one `bash` tool, and that
+tool operates on a read-only virtual filesystem backed by ChromaDB.
 
-Inspired by [Mintlify ChromaFs](https://www.mintlify.com/blog/how-we-built-a-virtual-filesystem-for-our-assistant): the agent does not need a real sandbox filesystem, only the illusion of one. Session bootstrap drops from tens of seconds to ~100ms by loading a single path-tree document.
+```text
+agent → bash → ChromaFs → Chroma Cloud
+```
 
-## Why
+The agent explores the collection with `ls`, `cat`, `grep`, `find`, and pipes.
+This is the virtual-filesystem pattern described in
+[Mintlify's ChromaFs article](https://www.mintlify.com/blog/how-we-built-a-virtual-filesystem-for-our-assistant).
 
-| Approach | Boot | Marginal cost | Interface |
-| --- | --- | --- | --- |
-| Container sandbox + clone | ~tens of seconds | per-session compute | real UNIX |
-| Classic RAG top-K | fast | embedding/query | opaque chunks |
-| **fs-layer** | ~100ms | reuse existing DB | `ls` / `cat` / `grep` |
+## Run
 
-Agents already know how to explore codebases with a shell. Point that shell at your knowledge base.
+Create `.env`:
 
-## Install
+```env
+CHROMA_API_KEY=your-chroma-api-key
+CHROMA_TENANT=028159bb-a271-4972-aa23-7a6da3a60264
+CHROMA_DATABASE=fs_layer
+CHROMA_COLLECTION=fs_layer
+OPENAI_API_KEY=your-openai-api-key
+MODEL=gpt-5.6-luna
+```
+
+Install and run one question:
 
 ```bash
-npm install fs-layer just-bash langchain @langchain/core zod
-# optional backends
-npm install chromadb neo4j-driver
+npm install
+npm run dev -- "How does OAuth work? Cite the file paths."
 ```
 
-## Quick start — LangChain `createAgent`
+Or build and run:
 
-Use LangChain's `createAgent` (LangGraph runtime) with filesystem tools defined via `tool` + Zod:
-
-```ts
-import { ChromaClient } from "chromadb";
-import { ChromaFs, createFsAgent } from "fs-layer";
-
-const client = new ChromaClient();
-const collection = await client.getOrCreateCollection({ name: "docs" });
-const fs = await ChromaFs.create(collection);
-
-const agent = createFsAgent({
-  model: "openai:gpt-4o-mini",
-  fs,
-  bashOptions: { customCommands: [fs.createGrepCommand()] },
-});
-
-const result = await agent.invoke({
-  messages: [{ role: "user", content: "How does OAuth work? Cite paths." }],
-});
+```bash
+npm run build
+npm start -- "Summarize the knowledge base."
 ```
 
-Tools registered by default:
+The application creates the Chroma Cloud client, opens the configured
+collection, maps it through `ChromaFs`, and starts one agent with one bash
+tool. It also accepts `OPENAI_KEY` as an alias for `OPENAI_API_KEY`. It does
+not seed, delete, or modify Chroma data.
 
-| Tool | Role |
-| --- | --- |
-| `bash` | Free-form shell (`ls`, `cat`, `grep`, pipes) |
-| `ls` | List a directory |
-| `read_file` | Read a file |
-| `grep` | Search under a path |
-| `glob` | Match paths (`**/*.md`) |
+## Chroma data shape
 
-Or build the tools yourself:
-
-```ts
-import { createAgent, tool } from "langchain";
-import { createAgentBash, createFsAgentTools, FS_LAYER_SYSTEM_PROMPT } from "fs-layer";
-
-const bash = createAgentBash({ fs, customCommands: [fs.createGrepCommand()] });
-const agent = createAgent({
-  model: "openai:gpt-4o-mini",
-  tools: createFsAgentTools({ bash, fs }),
-  systemPrompt: FS_LAYER_SYSTEM_PROMPT,
-});
-```
-
-## Quick start — ChromaFs (shell only)
-
-Index docs into Chroma with a `__path_tree__` document and chunked pages:
-
-```ts
-import { ChromaClient } from "chromadb";
-import { ChromaFs, createAgentBash, createBashTool } from "fs-layer";
-
-const client = new ChromaClient();
-const collection = await client.getOrCreateCollection({ name: "docs" });
-
-const fs = await ChromaFs.create(collection);
-const bash = createAgentBash({
-  fs,
-  customCommands: [fs.createGrepCommand()], // Chroma-accelerated grep
-});
-
-await bash.exec("ls /auth");
-await bash.exec("cat /auth/oauth.md");
-await bash.exec('grep -ri "access_token" /');
-
-const tool = createBashTool(bash); // LangChain StructuredTool
-await tool.invoke({ command: "ls /guides" });
-```
-
-### Chroma schema
-
-| Piece | How it is stored |
-| --- | --- |
-| Path tree | Document id `__path_tree__` — JSON map of slug → `{ isPublic, groups }` (optionally gzip+base64) |
-| Page body | Chunks with metadata `page_slug` + `chunk_index` |
+The collection must contain a path-tree document with id `__path_tree__`:
 
 ```json
 {
   "auth/oauth.md": { "isPublic": true, "groups": [] },
-  "internal/billing.md": { "isPublic": false, "groups": ["admin"] }
+  "guides/quickstart.md": { "isPublic": true, "groups": [] }
 }
 ```
 
-On init, fs-layer loads the tree into memory. `ls` / `cd` / `find` never hit the network. `cat` fetches chunks for one slug, joins them, and caches. Recursive `grep` uses Chroma `$contains` / `$regex` as a coarse filter, bulk-prefetches hits, then runs an in-memory fine filter.
-
-Writes always throw `EROFS` — the view is stateless and safe to share across agents.
-
-## Quick start — Neo4jFs
-
-### Document mode (ChromaFs-shaped)
-
-Nodes carry `fs_path` + `content`, or a single `:FsPathTree` node holds the tree JSON:
-
-```ts
-import neo4j from "neo4j-driver";
-import { Neo4jFs, createAgentBash } from "fs-layer";
-
-const driver = neo4j.driver(
-  process.env.NEO4J_URI!,
-  neo4j.auth.basic(process.env.NEO4J_USER!, process.env.NEO4J_PASSWORD!),
-);
-
-const fs = await Neo4jFs.create(driver, { mode: "document" });
-const bash = createAgentBash({ fs });
-
-await bash.exec("ls /docs");
-await bash.exec("cat /docs/intro.md");
-```
-
-### Labels mode (graph exploration)
-
-Browse labels and relationships as directories:
-
-```text
-/Person/<elementId>.json
-/_rels/KNOWS/index.json
-```
-
-```ts
-const fs = await Neo4jFs.create(driver, { mode: "labels" });
-const bash = createAgentBash({ fs });
-await bash.exec("ls /Person");
-await bash.exec("cat /Person/4:abc:0.json");
-```
-
-## Mount both backends
-
-```ts
-import { MountableFs, Bash } from "just-bash";
-import { ChromaFs, Neo4jFs } from "fs-layer";
-
-const chroma = await ChromaFs.create(collection);
-const graph = await Neo4jFs.create(driver, { mode: "labels" });
-
-const fs = new MountableFs({
-  mounts: [
-    { mountPoint: "/docs", fs: chroma },
-    { mountPoint: "/graph", fs: graph },
-  ],
-});
-
-const bash = new Bash({
-  fs,
-  cwd: "/",
-  customCommands: [chroma.createGrepCommand()],
-});
-```
-
-## Agent loop
-
-```ts
-import { createFsAgent } from "fs-layer";
-
-const agent = createFsAgent({ model: "openai:gpt-4o-mini", fs });
-const result = await agent.invoke({
-  messages: [{ role: "user", content: "Summarize auth from the docs" }],
-});
-```
-
-## API
-
-| Export | Role |
-| --- | --- |
-| `ChromaFs` | `IFileSystem` over ChromaDB |
-| `Neo4jFs` | `IFileSystem` over Neo4j |
-| `createFsAgent` | LangChain `createAgent` + filesystem tools |
-| `createFsAgentTools` / `createBashTool` / `createFsTools` | LangChain `tool()` helpers |
-| `createAgentBash` | just-bash bound to a virtual FS |
-| `PathTree` / `ContentCache` | shared bootstrap + session cache |
-| `FS_LAYER_SYSTEM_PROMPT` | system prompt for agents |
+Document chunks use `page_slug` and `chunk_index` metadata. `ChromaFs` loads
+the tree into memory, fetches page chunks for `cat`, and uses Chroma to narrow
+recursive `grep` searches.
 
 ## Development
 
 ```bash
-npm install
-npm test
+npm run lint
 npm run build
 ```
-
-## License
 
 MIT © Sarthak Chauhan

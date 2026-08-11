@@ -11,7 +11,7 @@ import { FS_LAYER_SYSTEM_PROMPT } from "./prompt.js";
 import { createFsAgentTools } from "./tools.js";
 
 export interface CreateFsAgentOptions {
-  /** Language model: `"openai:gpt-4o"`, a chat model instance, etc. */
+  /** Language model: a ChatOpenAI instance, provider string, or other chat model. */
   model: CreateAgentParams["model"];
   /**
    * Virtual filesystem (ChromaFs, Neo4jFs, MountableFs, …).
@@ -26,7 +26,7 @@ export interface CreateFsAgentOptions {
   extraTools?: CreateAgentParams["tools"];
   /** Override system prompt (defaults to FS_LAYER_SYSTEM_PROMPT). */
   systemPrompt?: CreateAgentParams["systemPrompt"];
-  /** Include structured ls/read_file/grep/glob tools. Default: true */
+  /** Include structured ls/read_file/grep/glob tools. Default: false */
   includeStructuredTools?: boolean;
   /** Forwarded to createAgent (middleware, responseFormat, …). */
   agentOptions?: Omit<
@@ -44,7 +44,7 @@ export interface CreateFsAgentOptions {
  *
  * const fs = await ChromaFs.create(collection);
  * const agent = createFsAgent({
- *   model: "openai:gpt-4o-mini",
+ *   model,
  *   fs,
  * });
  *
