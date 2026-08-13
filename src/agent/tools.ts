@@ -1,8 +1,5 @@
 /**
  * LangChain tools for exploring a just-bash virtual filesystem.
- *
- * Defined with `tool` + Zod schemas per LangChain docs so they plug into
- * `createAgent` (LangGraph runtime) without extra adapters.
  */
 
 import { tool } from "langchain";
@@ -10,11 +7,21 @@ import type { StructuredToolInterface } from "@langchain/core/tools";
 import type { Bash, IFileSystem } from "just-bash";
 import { z } from "zod";
 
+import { createGrepTool } from "./grep-tool.js";
+
 export interface BashToolResult {
   stdout: string;
   stderr: string;
   exitCode: number;
 }
+
+export {
+  createGrepTool,
+  formatGrepResult,
+  parseGrepResult,
+  GREP_RESULT_MARKER,
+} from "./grep-tool.js";
+export type { GrepHit, GrepToolResult } from "./grep-tool.js";
 
 function formatExec(result: BashToolResult): string {
   const parts: string[] = [];
@@ -43,13 +50,14 @@ export function createBashTool(bash: Bash) {
       name: "bash",
       description:
         "Run a bash command against the read-only knowledge filesystem. " +
-        "Use ls, cat, find, grep, head, wc, and pipes to explore. " +
-        "Examples: `ls /auth`, `cat /guides/quickstart.md`, `grep -ri oauth /`.",
+        "Use ls, cat, find, head, wc, and pipes to explore. " +
+        "For recursive search prefer the dedicated grep tool. " +
+        "Examples: `ls /auth`, `cat /guides/quickstart.md`, `find / -name '*.md'`.",
       schema: z.object({
         command: z
           .string()
           .describe(
-            "Bash command to execute (e.g. ls /auth, grep -ri oauth /, cat /guides/quickstart.md)",
+            "Bash command to execute (e.g. ls /auth, cat /guides/quickstart.md)",
           ),
       }),
     },
@@ -57,8 +65,7 @@ export function createBashTool(bash: Bash) {
 }
 
 /**
- * Structured filesystem tools (no shell parsing). Useful when you want
- * narrower tool calls than a free-form bash session.
+ * Structured filesystem tools (no shell parsing).
  */
 export function createFsTools(fs: IFileSystem) {
   const ls = tool(
@@ -101,71 +108,7 @@ export function createFsTools(fs: IFileSystem) {
     },
   );
 
-  const grep = tool(
-    async ({ pattern, path, ignoreCase }) => {
-      // Prefer ChromaFs/Neo4jFs optimized grep when available
-      const maybeGrep = fs as IFileSystem & {
-        grep?: (
-          pattern: string,
-          options?: { path?: string; ignoreCase?: boolean },
-        ) => Promise<Array<{ path: string; line: number; text: string }>>;
-      };
-
-      if (typeof maybeGrep.grep === "function") {
-        const matches = await maybeGrep.grep(pattern, {
-          path,
-          ignoreCase,
-        });
-        if (matches.length === 0) return "No matches.";
-        return matches
-          .map((m) => `${m.path}:${m.line}:${m.text}`)
-          .join("\n");
-      }
-
-      const allPaths =
-        typeof fs.getAllPaths === "function" ? fs.getAllPaths() : [];
-      const root = path.replace(/\/+$/, "") || "/";
-      const files: string[] = [];
-      for (const p of allPaths) {
-        if (!(await fs.exists(p))) continue;
-        const st = await fs.stat(p);
-        if (!st.isFile) continue;
-        if (root === "/" || p === root || p.startsWith(root + "/")) {
-          files.push(p);
-        }
-      }
-
-      const flags = ignoreCase ? "i" : "";
-      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(escaped, flags);
-      const out: string[] = [];
-      for (const file of files) {
-        const content = await fs.readFile(file);
-        const lines = content.split(/\r\n|\r|\n/);
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i] ?? "";
-          if (regex.test(line)) out.push(`${file}:${i + 1}:${line}`);
-        }
-      }
-      return out.length ? out.join("\n") : "No matches.";
-    },
-    {
-      name: "grep",
-      description:
-        "Search for a fixed string across files under a path in the virtual filesystem.",
-      schema: z.object({
-        pattern: z.string().describe("Fixed string to search for"),
-        path: z
-          .string()
-          .default("/")
-          .describe("Directory to search under (default /)"),
-        ignoreCase: z
-          .boolean()
-          .default(true)
-          .describe("Case-insensitive search"),
-      }),
-    },
-  );
+  const grep = createGrepTool(fs);
 
   const glob = tool(
     async ({ pattern, path }) => {
@@ -213,18 +156,24 @@ export function createFsTools(fs: IFileSystem) {
 }
 
 /**
- * Default tool set for createAgent: one bash tool. Structured tools are opt-in.
+ * Default tool set: bash + first-class grep. Other structured tools are opt-in.
  */
 export function createFsAgentTools(options: {
   bash: Bash;
   fs?: IFileSystem;
-  /** Include structured ls/read_file/grep/glob tools. Default false. */
+  /** Include ls/read_file/glob in addition to bash+grep. Default false. */
   includeStructured?: boolean;
 }): StructuredToolInterface[] {
   const tools: StructuredToolInterface[] = [createBashTool(options.bash)];
-  const includeStructured = options.includeStructured ?? false;
-  if (includeStructured && options.fs) {
-    tools.push(...createFsTools(options.fs));
+
+  if (options.fs) {
+    tools.push(createGrepTool(options.fs));
   }
+
+  if (options.includeStructured && options.fs) {
+    const [ls, readFile, , glob] = createFsTools(options.fs);
+    tools.push(ls, readFile, glob);
+  }
+
   return tools;
 }

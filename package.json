@@ -13,7 +13,8 @@
     "neo4j",
     "filesystem",
     "chromafs",
-    "llm"
+    "llm",
+    "tui"
   ],
   "license": "MIT",
   "author": "Sarthak Chauhan <sarthakchauhann@gmail.com>",
@@ -21,37 +22,17 @@
   "scripts": {
     "build": "tsup",
     "start": "node --env-file=.env dist/main.js",
-    "dev": "node --env-file=.env --import=tsx/esm --watch src/main.ts",
-    "seed:go": "node --env-file=.env --import=tsx/esm src/seed-go.ts",
+    "tui": "node --env-file=.env --import=tsx/esm src/main.tsx",
+    "dev": "node --env-file=.env --import=tsx/esm --watch src/main.tsx",
     "lint": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@langchain/core": ">=1.0.0",
-    "chromadb": ">=1.9.0",
-    "just-bash": ">=2.0.0",
-    "langchain": ">=1.0.0",
-    "neo4j-driver": ">=5.0.0",
-    "zod": ">=3.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@langchain/core": {
-      "optional": true
-    },
-    "chromadb": {
-      "optional": true
-    },
-    "langchain": {
-      "optional": true
-    },
-    "neo4j-driver": {
-      "optional": true
-    },
-    "zod": {
-      "optional": true
-    }
-  },
   "dependencies": {
+    "@sarchauhan/adapter": "^0.0.1",
+    "@sarchauhan/chat-tui": "^0.0.1",
+    "@sarchauhan/protocol": "^0.0.1",
+    "ink": "^7.1.1",
     "micromatch": "^4.0.8",
+    "react": "^19.2.3",
     "yargs-parser": "^21.1.1"
   },
   "devDependencies": {
@@ -60,6 +41,7 @@
     "@langchain/openai": "^1.5.6",
     "@types/micromatch": "^4.0.9",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
     "@types/yargs-parser": "^21.0.3",
     "chromadb": "^1.10.0",
     "just-bash": "^3.2.0",

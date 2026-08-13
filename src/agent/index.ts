@@ -7,8 +7,12 @@ export {
   createBashTool,
   createFsTools,
   createFsAgentTools,
+  createGrepTool,
+  formatGrepResult,
+  parseGrepResult,
+  GREP_RESULT_MARKER,
 } from "./tools.js";
-export type { BashToolResult } from "./tools.js";
+export type { BashToolResult, GrepHit, GrepToolResult } from "./tools.js";
 
 export { createFsAgent } from "./create-fs-agent.js";
 export type { CreateFsAgentOptions } from "./create-fs-agent.js";

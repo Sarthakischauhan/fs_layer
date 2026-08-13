@@ -30,6 +30,7 @@ export {
   createBashTool,
   createFsTools,
   createFsAgentTools,
+  createGrepTool,
   createFsAgent,
   FS_LAYER_SYSTEM_PROMPT,
 } from "./agent/index.js";
@@ -37,4 +38,9 @@ export type {
   CreateAgentBashOptions,
   CreateFsAgentOptions,
   BashToolResult,
+  GrepHit,
+  GrepToolResult,
 } from "./agent/index.js";
+
+export { createFsLayerAdapter } from "./tui/adapter.js";
+export type { CreateFsLayerAdapterOptions } from "./tui/adapter.js";

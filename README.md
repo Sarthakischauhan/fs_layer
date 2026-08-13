@@ -1,15 +1,12 @@
 # fs-layer
 
-An agentic knowledge-base explorer. One agent gets one `bash` tool, and that
-tool operates on a read-only virtual filesystem backed by ChromaDB.
+An agentic knowledge-base explorer. The agent gets `bash` + a first-class
+`grep` tool over a read-only ChromaFs virtual filesystem, rendered in
+[`@sarchauhan/chat-tui`](https://www.npmjs.com/package/@sarchauhan/chat-tui).
 
 ```text
-agent → bash → ChromaFs → Chroma Cloud
+you → chat-tui → createFsAgent → bash / grep → ChromaFs → Chroma Cloud
 ```
-
-The agent explores the collection with `ls`, `cat`, `grep`, `find`, and pipes.
-This is the virtual-filesystem pattern described in
-[Mintlify's ChromaFs article](https://www.mintlify.com/blog/how-we-built-a-virtual-filesystem-for-our-assistant).
 
 ## Run
 
@@ -17,46 +14,32 @@ Create `.env`:
 
 ```env
 CHROMA_API_KEY=your-chroma-api-key
-CHROMA_TENANT=random
+CHROMA_TENANT=your-tenant
 CHROMA_DATABASE=fs_layer
 CHROMA_COLLECTION=fs_layer
 OPENAI_API_KEY=your-openai-api-key
 MODEL=gpt-5.6-luna
 ```
 
-Install and run one question:
-
 ```bash
-npm install
-npm run dev -- "How does OAuth work? Cite the file paths."
+npm install --legacy-peer-deps
+npm run tui
 ```
 
-Or build and run:
+## Grep tool
 
-```bash
-npm run build
-npm start -- "Summarize the knowledge base."
-```
+`createGrepTool(fs)` is a LangChain `tool()` with Zod schema:
 
-The application creates the Chroma Cloud client, opens the configured
-collection, maps it through `ChromaFs`, and starts one agent with one bash
-tool. It also accepts `OPENAI_KEY` as an alias for `OPENAI_API_KEY`. It does
-not seed, delete, or modify Chroma data.
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `pattern` | required | Literal string (or regex if `fixedString: false`) |
+| `path` | `/` | Directory scope |
+| `ignoreCase` | `true` | Case-insensitive |
+| `fixedString` | `true` | Literal match |
 
-## Chroma data shape
-
-The collection must contain a path-tree document with id `__path_tree__`:
-
-```json
-{
-  "auth/oauth.md": { "isPublic": true, "groups": [] },
-  "guides/quickstart.md": { "isPublic": true, "groups": [] }
-}
-```
-
-Document chunks use `page_slug` and `chunk_index` metadata. `ChromaFs` loads
-the tree into memory, fetches page chunks for `cat`, and uses Chroma to narrow
-recursive `grep` searches.
+Against ChromaFs it uses the Mintlify coarse-filter → prefetch → fine-filter
+pipeline. The TUI renders matches as a bordered card with path:line rows and
+highlighted hits.
 
 ## Development
 
